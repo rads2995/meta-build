@@ -1,8 +1,14 @@
 use std::{
     env,
     fs::File,
-    io::Write, path,
+    io::Write,
 };
+
+use helpers::{
+    collect_files,
+};
+
+pub(crate) mod helpers;
 
 fn main() -> std::io::Result<()> {
 
@@ -37,21 +43,7 @@ fn main() -> std::io::Result<()> {
 
     let mut src_files: Vec<String> = Vec::new();
 
-
-    for iterator in std::fs::read_dir(cur_dir)? {
-        let iterator: std::fs::DirEntry = iterator?;
-        if iterator.path().is_dir() {
-
-        }
-
-        else if iterator.path().is_file() {
-            if let Some("c") = iterator.path().extension().and_then(|ext: &std::ffi::OsStr| ext.to_str()) {
-                if let Some(path_str) = iterator.path().to_str() {
-                    src_files.push(path_str.to_string());
-                }
-            }
-        }
-    }
+    collect_files(&cur_dir, &mut src_files);
 
     dbg!(src_files);
 
