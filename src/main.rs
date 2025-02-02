@@ -6,40 +6,7 @@ fn main() -> std::io::Result<()> {
         collect_files,
         create_build_file,
     };
-        
-    let args: Vec<String> = std::env::args().collect();
-    let mut application: bool = true;
-    if args.len() == 1 {
-        println!(
-            "Info: no input argument passed. Building binary executable."
-        );
-    }
 
-    else if args.len() == 2 {
-        if args[1] == "--static-lib" {
-            println!(
-                "Info: {} passed as input argument. Building static library.", args[1]
-            );
-
-        } 
-
-        else if args[1] == "--shared-lib" {
-            println!(
-                "Info: {} passed as input argument. Building shared library.", args[1]
-            );
-        }
-        
-        else {
-            panic!("Error: input argument not valid. For building a library, please use --static-lib or --shared-lib.")
-        }
-
-        application = false;
-    }
-
-    else {
-        panic!("Error: incorrect number of input arguments.")
-    }
-    
     // Initial compiler flags as recommended by the Open Source Security 
     // Foundation (OpenSSF) Best Practices Working Group, 2025-01-23
     let mut cflags: Vec<&str> = vec![
@@ -76,10 +43,9 @@ fn main() -> std::io::Result<()> {
         "-Wl,--no-copy-dt-needed-entries",
     ];
 
+    let cur_dir: std::path::PathBuf = std::env::current_dir()?;
     let mut src_files: Vec<std::path::PathBuf> = Vec::new();
     let mut header_files: Vec<std::path::PathBuf> = Vec::new();
-    let cur_dir: std::path::PathBuf = std::env::current_dir()?;
-    
     collect_files(&cur_dir, &mut src_files, &mut header_files)?;
 
     let mut src_names: Vec<String> = src_files.iter()
@@ -87,28 +53,6 @@ fn main() -> std::io::Result<()> {
         |name: &std::ffi::OsStr| name.to_string_lossy().to_string())
     )
     .collect();
-    
-    let mut build: String = String::new();
-    
-    if application == true {
-        cflags.push("-fPIE -pie");
-        build = format!("build main: ld {}", src_names.join(" ").replace("c", "o"));
-    }
-
-    else {
-        if args[1] == "--static-lib" {
-            build = format!("build lib.o: ld {}", src_names.join(" ").replace("c", "o"));
-        }
-
-        else if args[1] == "--shared-lib" {
-            cflags.push("-fPIC -shared");
-            build = format!("build lib.so: ld {}", src_names.join(" ").replace("c", "o"));
-        }
-    }
-    
-    src_names.iter_mut().for_each(|file: &mut String| {
-        *file = format!("build {}: cc {}", file.replace(".c", ".o"), file);
-    });
     
     header_files.iter_mut().for_each(|file_path: &mut std::path::PathBuf| {
         if let Some(parent_dir) = file_path.parent() {
@@ -123,8 +67,61 @@ fn main() -> std::io::Result<()> {
             "-I{}", file_path.to_string_lossy().into_owned())
         )
         .collect();
+    
+    let args: Vec<String> = std::env::args().collect();
+    
+    let mut artifact: String = String::new();
+    let mut valid: bool = false;
+    
+    for arg in args.iter().skip(1) {
+        match arg.as_str() {
+            "--executable" => {
+                println!("\"{}\" argument found. Building executable.", arg);
+                cflags.push("-fPIE -pie");
+                artifact = format!("build main: ld {}", src_names.join(" ").replace(".c", ".o"));
+                valid = true;
+                break;
+            },
+            "--static-lib" => {
+                println!("\"{}\" argument found. Building static library.", arg);
+                artifact = format!("build lib.o: ld {}", src_names.join(" ").replace(".c", ".o"));
+                valid = true;
+                break;
+            },
+            "--shared-lib" => {
+                println!("\"{}\" argument found. Building shared library.", arg);
+                cflags.push("-fPIC -shared");
+                artifact = format!("build lib.so: ld {}", src_names.join(" ").replace(".c", ".o"));
+                valid = true;
+                break;
+            },
+            "--src-files" => {
+                println!("Found source files: {}", src_names.join(" "));
+                return Ok(());
+            },
+            "--header-paths" => {
+                println!("Found paths for header files: {}", header_paths.join(" "));
+                return Ok(());
+            }
+            "-h" | "--help" => {
+                println!("Help information goes here.");
+                return Ok(());
+            },
+            _ => println!("Unknown argument passed \"{}\", ignoring.", arg),
+        }
+    } 
 
-    create_build_file(&cflags, &src_names, &header_paths, &build)?;
+    src_names.iter_mut().for_each(|file: &mut String| {
+        *file = format!("build {}: cc {}", file.replace(".c", ".o"), file);
+    });
+    
+    if valid {
+        create_build_file(&cflags, &src_names, &header_paths, &artifact)?;
+    }
+
+    else {
+        print!("Error: no valid arguments were passed.")
+    }
     
     Ok(())
 
