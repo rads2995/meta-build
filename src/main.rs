@@ -6,35 +6,76 @@ fn main() -> std::io::Result<()> {
         collect_files,
         create_build_file,
     };
-    
-    // TODO: implement something to do with input arguments
-    let _args: Vec<String> = std::env::args().collect();
         
+    let args: Vec<String> = std::env::args().collect();
+    let mut application: bool = true;
+    if args.len() == 1 {
+        println!(
+            "Info: no input argument passed. Building binary executable."
+        );
+    }
+
+    else if args.len() == 2 {
+        if args[1] == "--static-lib" {
+            println!(
+                "Info: {} passed as input argument. Building static library.", args[1]
+            );
+
+        } 
+
+        else if args[1] == "--shared-lib" {
+            println!(
+                "Info: {} passed as input argument. Building shared library.", args[1]
+            );
+        }
+        
+        else {
+            panic!("Error: input argument not valid. For building a library, please use --static-lib or --shared-lib.")
+        }
+
+        application = false;
+    }
+
+    else {
+        panic!("Error: incorrect number of input arguments.")
+    }
+    
     // Initial compiler flags as recommended by the Open Source Security 
     // Foundation (OpenSSF) Best Practices Working Group, 2025-01-23
-    // Mutable vector so that we can add or remove compiler flags!
-    let cflags: Vec<&str> = vec![
+    let mut cflags: Vec<&str> = vec![
         "cflags =",
         "-O2",
         "-Wall",
+        "-Wextra",
         "-Wformat",
         "-Wformat=2",
         "-Wconversion",
+        "-Wsign-conversion",
+        "-Wtrampolines",
         "-Wimplicit-fallthrough",
+        "-Wbidi-chars=any",
         "-Werror=format-security",
-        "-U_FORTIFY_SOURCE",
-        "-D_FORTIFY_SOURCE=3",
-        "-D_GLIBCXX_ASSERTIONS",
+        "-Werror=implicit",
+        "-Werror=incompatible-pointer-types",
+        "-Werror=int-conversion",
         "-fstrict-flex-arrays=3",
         "-fstack-clash-protection",
         "-fstack-protector-strong",
+        "-fcf-protection=full",
         "-Wl,-z,nodlopen",
         "-Wl,-z,noexecstack",
-        "-Wl,-z,relro -Wl,-z,now",
+        "-Wl,-z,relro",
+        "-Wl,-z,now",
+        "-fno-delete-null-pointer-checks",
+        "-fno-strict-overflow",
+        "-fno-strict-aliasing",
+        "-ftrivial-auto-var-init=zero",
+        "-fexceptions",
+        "-fhardened",
         "-Wl,--as-needed",
-        "-Wl,--no-copy-dt-needed-entries"
+        "-Wl,--no-copy-dt-needed-entries",
     ];
-    
+
     let mut src_files: Vec<std::path::PathBuf> = Vec::new();
     let mut header_files: Vec<std::path::PathBuf> = Vec::new();
     let cur_dir: std::path::PathBuf = std::env::current_dir()?;
@@ -47,8 +88,24 @@ fn main() -> std::io::Result<()> {
     )
     .collect();
     
-    let build: String = format!("build main: ld {}", src_names.join(" ").replace("c", "o"));
+    let mut build: String = String::new();
+    
+    if application == true {
+        cflags.push("-fPIE -pie");
+        build = format!("build main: ld {}", src_names.join(" ").replace("c", "o"));
+    }
 
+    else {
+        if args[1] == "--static-lib" {
+            build = format!("build lib.o: ld {}", src_names.join(" ").replace("c", "o"));
+        }
+
+        else if args[1] == "--shared-lib" {
+            cflags.push("-fPIC -shared");
+            build = format!("build lib.so: ld {}", src_names.join(" ").replace("c", "o"));
+        }
+    }
+    
     src_names.iter_mut().for_each(|file: &mut String| {
         *file = format!("build {}: cc {}", file.replace(".c", ".o"), file);
     });
