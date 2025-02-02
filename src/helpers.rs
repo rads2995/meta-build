@@ -1,29 +1,29 @@
-use std::{
-    fs, 
-    ffi,
-    io
-};
+pub(crate) fn collect_files(
+    path: &std::path::PathBuf, 
+    src_files: &mut Vec<std::path::PathBuf>,
+    header_files: &mut Vec<std::path::PathBuf>
+) -> std::io::Result<()> {
 
-pub(crate) fn collect_files(path: &std::path::PathBuf, src_files: &mut Vec<String>) -> io::Result<()> {
-
-    for entry in fs::read_dir(path)? {
-        let entry: fs::DirEntry = entry?;
+    for entry in std::fs::read_dir(path)? {
+        let entry: std::fs::DirEntry = entry?;
         let path: std::path::PathBuf = entry.path();
 
         if path.is_file() {
-            if let Some(ext) = path.extension().and_then(|ext: &ffi::OsStr| ext.to_str()) {
+            if let Some(ext) = path.extension().and_then(|ext: &std::ffi::OsStr| ext.to_str()) {
                 if ext == "c" {
-                    if let Some(path_str) = path.to_str() {
-                        src_files.push(path_str.to_string());
-                    }
+                    src_files.push(path);
+                }
+
+                else if ext == "h" {
+                    header_files.push(path);
                 }
             }
         }
 
         else if path.is_dir() {
-            collect_files(&path, src_files);
+            collect_files(&path, src_files, header_files)?;
         }
     }
 
     Ok(())
-}    
+}
