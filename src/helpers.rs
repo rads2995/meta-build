@@ -27,3 +27,20 @@ pub(crate) fn collect_files(
 
     Ok(())
 }
+
+pub(crate) fn create_build_file (cflags: &Vec<&str>, build: &[String], header_paths: &[String], main: &String) -> std::io::Result<()> {
+
+    use std::io::Write;
+    
+    let mut file: std::fs::File = std::fs::File::create("build.ninja")?;
+    writeln!(file, "{} {}", cflags.join(" "), header_paths.join(" "))?;
+    writeln!(file, "rule cc")?;
+    writeln!(file, "  depfile = $out.d")?;
+    writeln!(file, "  command = gcc -MD -MF $out.d $cflags -c $in -o $out")?;
+    writeln!(file, "rule ld")?;
+    writeln!(file, "  command = gcc $cflags $in -o $out")?;
+    writeln!(file, "{}", build.join("\n"))?;
+    writeln!(file, "{}", main)?;
+
+    Ok(())
+}

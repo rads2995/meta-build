@@ -1,11 +1,12 @@
 pub(crate) mod helpers;
 
-use std::io::Write;
-
-use helpers::collect_files;
-
 fn main() -> std::io::Result<()> {
 
+    use helpers::{
+        collect_files,
+        create_build_file,
+    };
+    
     // TODO: implement something to do with input arguments
     let _args: Vec<String> = std::env::args().collect();
         
@@ -40,28 +41,34 @@ fn main() -> std::io::Result<()> {
     
     collect_files(&cur_dir, &mut src_files, &mut header_files)?;
 
-    let build: &str = "build main.o: cc main.c \nbuild main: ld main.o";
+    let mut src_names: Vec<String> = src_files.iter()
+    .filter_map(|file_path: &std::path::PathBuf| file_path.file_name().map(
+        |name: &std::ffi::OsStr| name.to_string_lossy().to_string())
+    )
+    .collect();
+    
+    let build: String = format!("build main: ld {}", src_names.join(" ").replace("c", "o"));
+
+    src_names.iter_mut().for_each(|file: &mut String| {
+        *file = format!("build {}: cc {}", file.replace(".c", ".o"), file);
+    });
     
     header_files.iter_mut().for_each(|file_path: &mut std::path::PathBuf| {
         if let Some(parent_dir) = file_path.parent() {
             *file_path = parent_dir.to_path_buf();
         }
     });
-
+    
     header_files.dedup();
 
-    // Convert header_files (PathBuf) into Vec<&str>
     let header_paths: Vec<String> = header_files.iter()
-        .map(|file_path: &std::path::PathBuf| format!("-I{}", file_path.to_string_lossy().into_owned()))
+        .map(|file_path: &std::path::PathBuf| format!(
+            "-I{}", file_path.to_string_lossy().into_owned())
+        )
         .collect();
 
-    let mut file: std::fs::File = std::fs::File::create("build.ninja")?;
-    writeln!(file, "{} {}", cflags.join(" "), header_paths.join(" "))?;
-    writeln!(file, "rule cc")?;
-    writeln!(file, "  depfile = $out.d")?;
-    writeln!(file, "  command = gcc -MD -MF $out.d $cflags -I. -c $in -o $out")?;
-    writeln!(file, "rule ld")?;
-    writeln!(file, "  command = gcc $cflags $in -o $out")?;
-    writeln!(file, "{}", build)?;
+    create_build_file(&cflags, &src_names, &header_paths, &build)?;
+    
     Ok(())
+
 }
