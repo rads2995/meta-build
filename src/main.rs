@@ -29,16 +29,21 @@ fn main() -> std::io::Result<()> {
         "-fstack-clash-protection",
         "-fstack-protector-strong",
         "-fcf-protection=full",
-        "-Wl,-z,nodlopen",
-        "-Wl,-z,noexecstack",
-        "-Wl,-z,relro",
-        "-Wl,-z,now",
         "-fno-delete-null-pointer-checks",
         "-fno-strict-overflow",
         "-fno-strict-aliasing",
         "-ftrivial-auto-var-init=zero",
         "-fexceptions",
-        "-fhardened",
+    ];
+    
+    // Initial compiler flags as recommended by the Open Source Security 
+    // Foundation (OpenSSF) Best Practices Working Group, 2025-01-23    
+    let lflags: Vec<&str> = vec![
+        "lflags =",
+        "-Wl,-z,nodlopen",
+        "-Wl,-z,noexecstack",
+        "-Wl,-z,relro",
+        "-Wl,-z,now",
         "-Wl,--as-needed",
         "-Wl,--no-copy-dt-needed-entries",
     ];
@@ -116,7 +121,7 @@ fn main() -> std::io::Result<()> {
     });
     
     if valid {
-        create_build_file(&cflags, &src_names, &header_paths, &artifact)?;
+        create_build_file(&cflags, &lflags, &src_names, &header_paths, &artifact)?;
     }
 
     else {
